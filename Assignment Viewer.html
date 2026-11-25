@@ -1,0 +1,956 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Assignment Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Same working surface as Graph Instance Builder: instances, the drawing, then the numbers.
+   This page only reads orientations. Arrows and the amber makespan ring are the picture. */
+:root {
+  --bg: #E7ECF3;
+  --surface: #FFFFFF;
+  --surface2: #F2F5F9;
+  --canvas: #F8FAFD;
+  --grid: #E1E8F1;
+  --grid-major: #CBD6E4;
+  --ink: #14213D;
+  --ink2: #51627A;
+  --line: #CBD5E1;
+  --accent: #0B7285;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #D5EDF1;
+  --node: #14213D;
+  --node-ink: #FFFFFF;
+  --pill: #FFFFFF;
+  --warn: #B45309;
+  --danger: #B42318;
+  --danger-soft: #FDE8E6;
+  --shadow: 0 1px 2px rgba(20, 33, 61, .08), 0 6px 18px rgba(20, 33, 61, .06);
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-display: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
+  --stage-h: 640px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0B121C; --surface: #131D2B; --surface2: #19263A; --canvas: #0E1724;
+    --grid: #15213A; --grid-major: #1F3050; --ink: #E7EEF8; --ink2: #93A4BC; --line: #27384F;
+    --accent: #4CC3D2; --accent-ink: #05202A; --accent-soft: #123A44;
+    --node: #E7EEF8; --node-ink: #0B121C; --pill: #131D2B;
+    --warn: #F0A04B; --danger: #F2877E; --danger-soft: #3A1B19;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 18px rgba(0, 0, 0, .3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0B121C; --surface: #131D2B; --surface2: #19263A; --canvas: #0E1724;
+  --grid: #15213A; --grid-major: #1F3050; --ink: #E7EEF8; --ink2: #93A4BC; --line: #27384F;
+  --accent: #4CC3D2; --accent-ink: #05202A; --accent-soft: #123A44;
+  --node: #E7EEF8; --node-ink: #0B121C; --pill: #131D2B;
+  --warn: #F0A04B; --danger: #F2877E; --danger-soft: #3A1B19;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 18px rgba(0, 0, 0, .3);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-ui); font-size: 14px; line-height: 1.45;
+  padding-block: 14px 28px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1480px; margin: 0 auto; display: grid; gap: 12px; }
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.brand { min-width: 0; }
+.brand h1 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 24px; letter-spacing: -.01em; line-height: 1.1; }
+.brand p { margin: 3px 0 0; color: var(--ink2); font-size: 13px; max-width: 62ch; }
+.brand code, .hint code { font-family: var(--font-mono); font-size: 12px; background: var(--surface2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.top-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lbl { font-size: 12px; color: var(--ink2); }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 32px; padding: 0 12px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+}
+.btn:hover:not(:disabled) { background: var(--surface2); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.sm { min-height: 28px; padding: 0 9px; font-size: 13px; }
+.btn svg { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.algo-pick { display: inline-flex; align-items: center; gap: 6px; }
+.algo-pick select { max-width: 220px; }
+input[type="text"], select, textarea {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px; min-height: 30px; padding: 3px 8px; min-width: 0;
+}
+.layout { display: grid; grid-template-columns: 248px minmax(0, 1fr) 372px; gap: 12px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.panel-h h2, .sec h3 { margin: 0; font-size: 11.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--ink2); }
+.instances { display: flex; flex-direction: column; max-height: calc(var(--stage-h) + 50px); }
+.inst-filter { padding: 8px 10px 0; }
+.inst-filter input { width: 100%; }
+.inst-list { list-style: none; margin: 0; padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow: auto; min-height: 0; }
+.inst-item { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 8px 10px; cursor: pointer; min-width: 0; text-align: left; width: 100%; display: block; }
+.inst-item:hover { background: var(--surface2); }
+.inst-item[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.inst-name { font-weight: 600; overflow-wrap: anywhere; }
+.inst-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 3px; font-family: var(--font-mono); font-size: 12px; color: var(--ink2); }
+.mini-tag { font-family: var(--font-ui); font-size: 11px; border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; background: var(--surface2); color: var(--ink2); }
+.empty-note { color: var(--ink2); padding: 8px 4px; font-size: 13px; }
+.stage { overflow: visible; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.toolbar .sp { flex: 1 1 8px; }
+.board {
+  position: relative; height: var(--stage-h); overflow: hidden; touch-action: none;
+  background-color: var(--canvas);
+  background-image:
+    linear-gradient(var(--grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
+  border-radius: 0 0 10px 10px;
+}
+#svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; user-select: none; }
+.hint { padding: 8px 12px; color: var(--ink2); font-size: 13px; border-top: 1px solid var(--line); min-height: 38px; }
+.hint b { color: var(--ink); font-weight: 600; }
+.board-empty { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; text-align: center; padding: 24px; color: var(--ink2); }
+.board-empty div { max-width: 360px; background: color-mix(in srgb, var(--canvas) 88%, transparent); padding: 10px 14px; border-radius: 8px; }
+.edge-line { fill: none; stroke: var(--ink2); stroke-width: 1.8; }
+.edge-hit { fill: none; stroke: transparent; stroke-width: 16; cursor: pointer; }
+.edge.sel .edge-line { stroke: var(--accent); stroke-width: 2.8; }
+.pill-bg { fill: var(--pill); stroke: var(--line); stroke-width: 1; }
+.edge.sel .pill-bg { stroke: var(--accent); stroke-width: 1.6; }
+.pill-tx { font-family: var(--font-mono); font-size: 11px; fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.node-c { fill: var(--node); stroke: var(--canvas); stroke-width: 2.5; }
+.node-tx { font-family: var(--font-mono); font-size: 12px; font-weight: 500; fill: var(--node-ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.node { cursor: grab; }
+.load-ring { fill: none; stroke: var(--accent); }
+.load-ring.hot { stroke: var(--warn); }
+.load-bg { fill: var(--surface); stroke: var(--line); }
+.load-bg.hot { stroke: var(--warn); }
+.load-tx { font-family: var(--font-mono); font-size: 11px; fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.load-tx.hot { fill: var(--warn); font-weight: 600; }
+.ring-sel { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.inspector { display: flex; flex-direction: column; height: calc(var(--stage-h) + 50px); overflow: auto; }
+.sec { padding: 10px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+.sec:last-child { border-bottom: 0; }
+.metrics { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: end; }
+.metric { display: grid; gap: 1px; }
+.metric .num { font-family: var(--font-mono); font-size: 22px; font-weight: 500; letter-spacing: -.02em; line-height: 1.1; }
+.metric.quiet .num { font-size: 15px; font-weight: 500; }
+.metric .cap { font-size: 12px; color: var(--ink2); }
+.drawing-name { margin: 0; font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { border: 1px solid var(--line); background: var(--surface2); border-radius: 999px; padding: 1px 9px; font-size: 12.5px; }
+.algo-list { display: grid; gap: 6px; }
+.algo-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 6px 10px; }
+.algo-row:hover { background: var(--surface2); }
+.algo-row[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.algo-row .ms { font-family: var(--font-mono); }
+.warn { color: var(--warn); font-size: 12.5px; }
+.table-wrap { overflow: auto; max-height: 240px; }
+table.grid { border-collapse: collapse; width: 100%; }
+table.grid th { position: sticky; top: 0; background: var(--surface); z-index: 1; font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; color: var(--ink2); text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--line); }
+table.grid td { padding: 4px; border-bottom: 1px solid var(--surface2); font-family: var(--font-mono); font-size: 12.5px; }
+table.grid tr { cursor: pointer; }
+table.grid tr.sel td { background: var(--accent-soft); }
+table.grid tr.hot td { color: var(--warn); }
+.bar-track { height: 6px; border-radius: 99px; background: var(--surface2); overflow: hidden; min-width: 48px; }
+.bar { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+tr.hot .bar { background: var(--warn); }
+.overlay { position: fixed; inset: 0; z-index: 50; background: rgba(8, 14, 24, .55); display: grid; place-items: center; padding: 14px; }
+.dialog { width: min(720px, 100%); max-height: 100%; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+.dialog-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.dialog-h h2 { margin: 0; font-family: var(--font-display); font-size: 18px; }
+.dialog-b { padding: 12px 14px 14px; display: grid; gap: 10px; }
+textarea.code { font-family: var(--font-mono); font-size: 12px; line-height: 1.5; background: var(--surface2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 0; width: 100%; min-height: 240px; resize: vertical; white-space: pre; overflow: auto; }
+.vis-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 1099px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .instances, .inspector { max-height: none; height: auto; }
+  .inst-list { flex-direction: row; overflow-x: auto; }
+  .inst-item { width: 220px; flex: none; }
+  .inspector { overflow: visible; }
+  .table-wrap { max-height: 320px; }
+}
+@media (max-width: 640px) {
+  :root { --stage-h: 470px; }
+  .brand h1 { font-size: 21px; }
+  .btn .lab-long { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .btn, .inst-item, .algo-row { transition: background-color .12s ease, border-color .12s ease; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Assignment Viewer</h1>
+      <p>Draw an orientation from a run in <code>Outputs</code>. Each arrow is an edge sent to one node. The number under the node is the load that orientation gave it.</p>
+    </div>
+    <div class="top-actions">
+      <label class="algo-pick"><span class="lbl" id="lbl-algo">Algorithm</span>
+        <select id="algo" aria-labelledby="lbl-algo" disabled>
+          <option value="">None loaded</option>
+        </select>
+      </label>
+      <button type="button" class="btn primary" id="btn-open">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h6l2 2h8v10H4z"/><path d="M4 7V5h5l2 2"/></svg>
+        Open files
+      </button>
+      <button type="button" class="btn" id="btn-folder">Open folder</button>
+      <button type="button" class="btn" id="btn-paste">Paste</button>
+      <button type="button" class="btn" id="btn-example">Example</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="panel instances" aria-label="Instances">
+      <div class="panel-h"><h2>Instances</h2><span class="lbl" id="inst-count"></span></div>
+      <div class="inst-filter"><input type="text" id="inst-filter" placeholder="Filter by name or tag" aria-label="Filter instances" autocomplete="off"></div>
+      <ul class="inst-list" id="inst-list"></ul>
+    </aside>
+
+    <section class="panel stage" aria-label="Orientation">
+      <div class="toolbar">
+        <button type="button" class="btn sm" id="btn-circle" disabled>Circle</button>
+        <button type="button" class="btn sm" id="btn-spread" disabled>Spread</button>
+        <span class="sp"></span>
+        <button type="button" class="btn sm" id="btn-weights" aria-pressed="true" disabled>Weights</button>
+      </div>
+      <div class="board" id="board">
+        <svg id="svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Oriented graph"></svg>
+        <div class="board-empty" id="board-empty"><div>Open a run folder, or the text files in its <b>assignments</b> folder. Drop the files here if that is easier.</div></div>
+      </div>
+      <div class="hint" id="hint"></div>
+    </section>
+
+    <aside class="panel inspector" aria-label="Assignment details">
+      <div id="inspector"></div>
+    </aside>
+  </main>
+</div>
+
+<input class="vis-hidden" type="file" id="file-open" accept=".txt,text/plain" multiple>
+<input class="vis-hidden" type="file" id="file-dir" webkitdirectory directory multiple>
+<div class="vis-hidden" id="live" aria-live="polite"></div>
+
+<div class="overlay" id="paste-dialog" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="paste-title">
+    <div class="dialog-h">
+      <h2 id="paste-title">Paste an assignment file</h2>
+      <button type="button" class="btn sm" id="paste-close">Close</button>
+    </div>
+    <div class="dialog-b">
+      <p class="lbl" style="margin:0">Paste one or more <code>graph-assignments</code> files. Each edge line is <code>u v head weight</code>, then one <code>node load</code> line per node.</p>
+      <textarea class="code" id="paste-in" spellcheck="false" aria-label="Assignment text"></textarea>
+      <div><button type="button" class="btn primary" id="paste-go">Draw</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const EXAMPLE = `# graph-assignments v1 count=4 index-base=0
+# instance: example-cycle-6
+# tags: cycle
+# algorithm: sample-a
+# makespan: 14
+# lower_bound: 9
+# upper_bound: 14
+6 6
+0 1 0 9
+1 2 1 3
+2 3 3 2
+3 4 3 3
+4 5 5 5
+5 0 0 5
+# loads
+0 14
+1 3
+2 0
+3 5
+4 0
+5 5
+
+# instance: example-cycle-6
+# tags: cycle
+# algorithm: sample-b
+# makespan: 12
+# lower_bound: 9
+# upper_bound: 12
+6 6
+0 1 0 9
+1 2 1 3
+2 3 3 2
+3 4 3 3
+4 5 5 5
+5 0 5 7
+# loads
+0 9
+1 3
+2 0
+3 5
+4 0
+5 12
+
+# instance: example-star
+# tags: star
+# algorithm: sample-a
+# makespan: 2
+# lower_bound: 1
+# upper_bound: 2
+4 3
+0 1 0 1
+0 2 0 1
+0 3 3 1
+# loads
+0 2
+1 0
+2 0
+3 1
+
+# instance: example-star
+# tags: star
+# algorithm: sample-b
+# makespan: 6
+# lower_bound: 1
+# upper_bound: 6
+4 3
+0 1 0 1
+0 2 0 1
+0 3 0 4
+# loads
+0 6
+1 0
+2 0
+3 0
+`;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const f1 = (x) => Math.round(x * 10) / 10;
+const fmtNum = (x) => {
+  if (!Number.isFinite(x)) return '';
+  const n = Number(Number(x).toFixed(10));
+  return String(n);
+};
+const NODE_R = 17;
+const nearly = (a, b) => Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b));
+
+function parseAssignments(src) {
+  const lines = String(src).replace(/^\uFEFF/, '').split(/\r?\n/);
+  const items = [];
+  let i = 0;
+  let name = '', tags = [], algorithm = '', makespan = null, lower = null, upper = null;
+  const fail = (ln, msg) => { throw new Error(`Line ${ln}: ${msg}`); };
+  const asInt = (token, ln, what) => {
+    const v = Number(token);
+    if (!Number.isFinite(v) || !Number.isInteger(v)) fail(ln, `${what} must be an integer`);
+    return v;
+  };
+  const asNum = (token, ln, what) => {
+    const v = Number(token);
+    if (!Number.isFinite(v)) fail(ln, `${what} must be a number`);
+    return v;
+  };
+  while (i < lines.length) {
+    const raw = lines[i].trim();
+    const ln = i + 1;
+    i += 1;
+    if (!raw) continue;
+    if (raw[0] === '#') {
+      const body = raw.slice(1).trim();
+      let m;
+      if ((m = /^instance:\s*(.*)$/i.exec(body))) name = m[1].trim();
+      else if ((m = /^tags:\s*(.*)$/i.exec(body))) tags = m[1].split(',').map((t) => t.trim()).filter(Boolean);
+      else if ((m = /^algorithm:\s*(.*)$/i.exec(body))) algorithm = m[1].trim();
+      else if ((m = /^makespan:\s*(.*)$/i.exec(body))) makespan = asNum(m[1].trim(), ln, 'makespan');
+      else if ((m = /^lower_bound:\s*(.*)$/i.exec(body))) lower = asNum(m[1].trim(), ln, 'lower_bound');
+      else if ((m = /^upper_bound:\s*(.*)$/i.exec(body))) upper = asNum(m[1].trim(), ln, 'upper_bound');
+      continue;
+    }
+    const head = raw.split(/\s+/);
+    if (head.length !== 2) fail(ln, `expected "n m" but found "${raw}"`);
+    const n = asInt(head[0], ln, 'n');
+    const mCount = asInt(head[1], ln, 'm');
+    if (n < 0 || mCount < 0) fail(ln, 'n and m must be non-negative');
+    const edges = [];
+    while (edges.length < mCount) {
+      if (i >= lines.length) fail(ln, `expected ${mCount} edge lines, found ${edges.length}`);
+      const el = lines[i].trim();
+      const eln = i + 1;
+      i += 1;
+      if (!el || el[0] === '#') continue;
+      const p = el.split(/\s+/);
+      if (p.length !== 4) fail(eln, `expected "u v head weight" but found "${el}"`);
+      const u = asInt(p[0], eln, 'u');
+      const v = asInt(p[1], eln, 'v');
+      const toward = asInt(p[2], eln, 'head');
+      const weight = asNum(p[3], eln, 'weight');
+      if (u === v) fail(eln, 'u and v are the same node');
+      if (toward !== u && toward !== v) fail(eln, `head ${toward} is not an endpoint`);
+      if (weight < 0) fail(eln, 'weight must be zero or positive');
+      edges.push({ id: edges.length + 1, u, v, head: toward, weight });
+    }
+    const nodes = [];
+    const seen = new Set();
+    while (nodes.length < n) {
+      if (i >= lines.length) fail(ln, `expected ${n} load lines, found ${nodes.length}`);
+      const el = lines[i].trim();
+      const eln = i + 1;
+      i += 1;
+      if (!el || el[0] === '#') continue;
+      const p = el.split(/\s+/);
+      if (p.length !== 2) fail(eln, `expected "node load" but found "${el}"`);
+      const id = asInt(p[0], eln, 'node');
+      const load = asNum(p[1], eln, 'load');
+      if (load < 0) fail(eln, 'load must be zero or positive');
+      if (seen.has(id)) fail(eln, `node ${id} is listed twice`);
+      seen.add(id);
+      nodes.push({ id, load, x: 0.5, y: 0.5 });
+    }
+    for (const e of edges) {
+      if (!seen.has(e.u) || !seen.has(e.v)) {
+        throw new Error(`Instance "${name || items.length + 1}": edge ${e.id} uses a node that has no load line`);
+      }
+    }
+    const peak = nodes.reduce((mx, node) => Math.max(mx, node.load), 0);
+    let warning = '';
+    if (makespan != null && !nearly(makespan, peak)) {
+      warning = `The file says the makespan is ${fmtNum(makespan)}, but the largest load is ${fmtNum(peak)}.`;
+    }
+    items.push({
+      name: name || `instance-${items.length + 1}`,
+      tags: tags.slice(),
+      algorithm: algorithm || 'assignment',
+      makespan: makespan == null ? peak : makespan,
+      lower, upper, peak, warning, nodes, edges,
+    });
+    name = ''; tags = []; algorithm = ''; makespan = lower = upper = null;
+  }
+  if (!items.length) throw new Error('No assignments found. Expected "n m", then "u v head weight", then "node load".');
+  return items;
+}
+
+function circleLayout(n) {
+  if (n <= 0) return [];
+  if (n === 1) return [{ x: 0.5, y: 0.46 }];
+  return Array.from({ length: n }, (_, i) => {
+    const a = -Math.PI / 2 + (2 * Math.PI * i) / n;
+    return { x: 0.5 + 0.34 * Math.cos(a), y: 0.46 + 0.30 * Math.sin(a) };
+  });
+}
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function forceLayout(n, pairs, seed) {
+  if (n === 0) return [];
+  if (n === 1) return [{ x: 0.5, y: 0.46 }];
+  const r = rng(seed || 7);
+  const P = circleLayout(n).map((p) => ({ x: p.x + (r() - 0.5) * 0.05, y: p.y + (r() - 0.5) * 0.05 }));
+  const seen = new Set(), E = [];
+  for (const [a, b] of pairs) {
+    const k = a < b ? a + ',' + b : b + ',' + a;
+    if (!seen.has(k)) { seen.add(k); E.push([a, b]); }
+  }
+  const k = 0.9 * Math.sqrt(1 / n);
+  let temp = 0.12;
+  for (let it = 0; it < 220; it++) {
+    const D = P.map(() => ({ x: 0, y: 0 }));
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      let dx = P[i].x - P[j].x, dy = P[i].y - P[j].y;
+      const d = Math.max(0.001, Math.hypot(dx, dy)), force = (k * k) / d;
+      dx /= d; dy /= d;
+      D[i].x += dx * force; D[i].y += dy * force; D[j].x -= dx * force; D[j].y -= dy * force;
+    }
+    for (const [a, b] of E) {
+      let dx = P[a].x - P[b].x, dy = P[a].y - P[b].y;
+      const d = Math.max(0.001, Math.hypot(dx, dy)), force = (d * d) / k;
+      dx /= d; dy /= d;
+      D[a].x -= dx * force; D[a].y -= dy * force; D[b].x += dx * force; D[b].y += dy * force;
+    }
+    for (let i = 0; i < n; i++) {
+      const len = Math.max(0.0001, Math.hypot(D[i].x, D[i].y)), lim = Math.min(len, temp);
+      P[i].x += (D[i].x / len) * lim; P[i].y += (D[i].y / len) * lim;
+    }
+    temp *= 0.985;
+  }
+  const xs = P.map((p) => p.x), ys = P.map((p) => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const sx = x1 - x0 || 1, sy = y1 - y0 || 1;
+  return P.map((p) => ({ x: 0.14 + 0.72 * ((p.x - x0) / sx), y: 0.16 + 0.66 * ((p.y - y0) / sy) }));
+}
+
+const S = { items: [], algorithm: '', activeName: null, filter: '', sel: null, showWeights: true, flash: '' };
+const layouts = new Map();
+const layoutKey = (item) => item.name + '\0' + item.nodes.map((n) => n.id).join(',');
+function saveLayout(item) {
+  layouts.set(layoutKey(item), Object.fromEntries(item.nodes.map((n) => [n.id, { x: n.x, y: n.y }])));
+}
+function place(item, mode) {
+  const key = layoutKey(item);
+  const saved = layouts.get(key);
+  if (!mode && saved && item.nodes.every((n) => saved[n.id])) {
+    for (const n of item.nodes) { n.x = saved[n.id].x; n.y = saved[n.id].y; }
+    return;
+  }
+  const n = item.nodes.length;
+  const idx = new Map(item.nodes.map((node, i) => [node.id, i]));
+  const pairs = item.edges.map((e) => [idx.get(e.u), idx.get(e.v)]);
+  const pos = mode === 'circle' || n <= 2 || !pairs.length ? circleLayout(n) : forceLayout(n, pairs, 7);
+  item.nodes.forEach((node, i) => { node.x = pos[i].x; node.y = pos[i].y; });
+  saveLayout(item);
+}
+function algorithms() {
+  const names = [];
+  for (const item of S.items) if (!names.includes(item.algorithm)) names.push(item.algorithm);
+  return names;
+}
+function current() {
+  return S.items.find((item) => item.name === S.activeName && item.algorithm === S.algorithm) || null;
+}
+function siblings(name) {
+  return S.items.filter((item) => item.name === name);
+}
+
+function adopt(items, note) {
+  const map = new Map();
+  for (const item of items) map.set(item.name + '\0' + item.algorithm, item);
+  S.items = [...map.values()];
+  const names = algorithms();
+  if (!names.includes(S.algorithm)) S.algorithm = names[0] || '';
+  const visible = S.items.filter((item) => item.algorithm === S.algorithm);
+  if (!visible.some((item) => item.name === S.activeName)) S.activeName = visible[0] ? visible[0].name : null;
+  S.sel = null;
+  for (const item of S.items) place(item);
+  renderAll();
+  flash(note);
+}
+
+let flashT = null;
+function flash(msg) {
+  S.flash = msg || '';
+  renderHint();
+  $('live').textContent = S.flash;
+  clearTimeout(flashT);
+  if (S.flash) flashT = setTimeout(() => { S.flash = ''; renderHint(); }, 4600);
+}
+
+function renderHint() {
+  const el = $('hint');
+  if (S.flash) { el.textContent = S.flash; return; }
+  if (!current()) { el.textContent = 'Open assignment files to draw them.'; return; }
+  el.innerHTML = '<b>Arrow</b> points at the node that receives the weight. The number under a node is its load. Amber marks every node at the makespan. Drag a node to move it.';
+}
+
+function renderAlgorithm() {
+  const sel = $('algo');
+  const names = algorithms();
+  const sig = names.join('\0');
+  if (sel.dataset.sig !== sig) {
+    sel.innerHTML = names.length
+      ? names.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join('')
+      : '<option value="">None loaded</option>';
+    sel.dataset.sig = sig;
+  }
+  sel.disabled = names.length === 0;
+  if (names.length) sel.value = S.algorithm;
+}
+
+function visibleItems() {
+  const q = S.filter.trim().toLowerCase();
+  return S.items.filter((item) => item.algorithm === S.algorithm && (
+    !q || item.name.toLowerCase().includes(q) || item.tags.some((tag) => tag.toLowerCase().includes(q))
+  ));
+}
+
+function renderInstances() {
+  const visible = visibleItems();
+  $('inst-count').textContent = S.items.length ? String(visible.length) : '';
+  const list = $('inst-list');
+  if (!S.items.length) {
+    list.innerHTML = '<li class="empty-note">No files yet.</li>';
+    return;
+  }
+  if (!visible.length) {
+    list.innerHTML = '<li class="empty-note">Nothing matches this filter.</li>';
+    return;
+  }
+  list.innerHTML = visible.map((item, index) => {
+    const tags = item.tags.map((tag) => `<span class="mini-tag">${esc(tag)}</span>`).join('');
+    const currentAttr = item.name === S.activeName ? ' aria-current="true"' : '';
+    return `<li><button type="button" class="inst-item" data-i="${index}"${currentAttr}>` +
+      `<div class="inst-name">${esc(item.name)}</div>` +
+      `<div class="inst-meta"><span>${esc(fmtNum(item.makespan))}</span><span>${item.nodes.length} nodes, ${item.edges.length} edges</span>${tags}</div>` +
+      `</button></li>`;
+  }).join('');
+  list.querySelectorAll('.inst-item').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const item = visible[Number(btn.dataset.i)];
+      if (!item || item.name === S.activeName) return;
+      S.activeName = item.name;
+      S.sel = null;
+      renderAll();
+    });
+  });
+}
+
+function renderInspector() {
+  const host = $('inspector');
+  const item = current();
+  if (!item) {
+    host.innerHTML = '<div class="sec"><p class="empty-note">The makespan, node loads, and edge directions show up here.</p></div>';
+    return;
+  }
+  const others = siblings(item.name);
+  const algoRows = others.length > 1 ? others.map((other) => {
+    const on = other.algorithm === item.algorithm ? ' aria-current="true"' : '';
+    return `<button type="button" class="algo-row" data-algo="${esc(other.algorithm)}"${on}><span>${esc(other.algorithm)}</span><span class="ms">${esc(fmtNum(other.makespan))}</span></button>`;
+  }).join('') : '';
+  const bounds = [
+    item.lower == null ? '' : `<div class="metric quiet"><span class="num">${esc(fmtNum(item.lower))}</span><span class="cap">lower bound</span></div>`,
+    item.upper == null ? '' : `<div class="metric quiet"><span class="num">${esc(fmtNum(item.upper))}</span><span class="cap">upper bound</span></div>`,
+  ].join('');
+  const tags = item.tags.map((tag) => `<span class="chip">${esc(tag)}</span>`).join('');
+  const peak = item.peak;
+  const nodeRows = item.nodes.map((node) => {
+    const hot = peak > 0 && nearly(node.load, peak);
+    const sel = S.sel && S.sel.type === 'node' && S.sel.id === node.id;
+    const width = peak > 0 ? Math.max(0, Math.min(100, (node.load / peak) * 100)) : 0;
+    return `<tr tabindex="0" role="button" aria-label="node ${node.id}, load ${esc(fmtNum(node.load))}" data-kind="node" data-id="${node.id}" class="${hot ? 'hot' : ''} ${sel ? 'sel' : ''}">` +
+      `<td>${node.id}</td><td>${esc(fmtNum(node.load))}</td>` +
+      `<td><div class="bar-track"><span class="bar" style="width:${width}%"></span></div></td></tr>`;
+  }).join('');
+  const edgeRows = item.edges.map((edge) => {
+    const sel = S.sel && S.sel.type === 'edge' && S.sel.id === edge.id;
+    return `<tr tabindex="0" role="button" aria-label="edge ${edge.id} from ${edge.u} to ${edge.head}, weight ${esc(fmtNum(edge.weight))}" data-kind="edge" data-id="${edge.id}" class="${sel ? 'sel' : ''}">` +
+      `<td>${edge.id}</td><td>${edge.u}</td><td>${edge.v}</td><td>${edge.head}</td><td>${esc(fmtNum(edge.weight))}</td></tr>`;
+  }).join('');
+  host.innerHTML =
+    `<div class="sec">` +
+      `<h2 class="drawing-name">${esc(item.name)}</h2>` +
+      (tags ? `<div class="chips">${tags}</div>` : '') +
+      `<div class="metrics"><div class="metric"><span class="num">${esc(fmtNum(item.makespan))}</span><span class="cap">makespan</span></div>${bounds}</div>` +
+      (item.warning ? `<div class="warn">${esc(item.warning)}</div>` : '') +
+      `<div class="lbl">${esc(item.algorithm)}</div>` +
+    `</div>` +
+    (algoRows ? `<div class="sec"><h3>Algorithms on this instance</h3><div class="algo-list">${algoRows}</div></div>` : '') +
+    `<div class="sec"><h3>Node loads</h3><div class="table-wrap"><table class="grid"><thead><tr><th>node</th><th>load</th><th>share</th></tr></thead><tbody>${nodeRows}</tbody></table></div></div>` +
+    `<div class="sec"><h3>Edges</h3><div class="table-wrap"><table class="grid"><thead><tr><th>#</th><th>u</th><th>v</th><th>head</th><th>weight</th></tr></thead><tbody>${edgeRows}</tbody></table></div></div>`;
+  host.querySelectorAll('.algo-row').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const name = btn.getAttribute('data-algo');
+      if (!name || name === S.algorithm) return;
+      S.algorithm = name;
+      S.sel = null;
+      if (!S.items.some((it) => it.algorithm === name && it.name === S.activeName)) {
+        const next = S.items.find((it) => it.algorithm === name);
+        S.activeName = next ? next.name : null;
+      }
+      renderAll();
+    });
+  });
+  host.querySelectorAll('tr[data-kind]').forEach((row) => {
+    const choose = () => {
+      S.sel = { type: row.dataset.kind, id: Number(row.dataset.id) };
+      renderCanvas();
+      renderInspector();
+    };
+    row.addEventListener('click', choose);
+    row.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Enter' && ev.key !== ' ') return;
+      ev.preventDefault();
+      choose();
+    });
+  });
+}
+
+const svg = $('svg');
+const board = $('board');
+let W = 800, Hh = 640;
+function measure() {
+  const rect = board.getBoundingClientRect();
+  W = Math.max(200, rect.width);
+  Hh = Math.max(200, rect.height);
+  svg.setAttribute('viewBox', `0 0 ${f1(W)} ${f1(Hh)}`);
+}
+const qpt = (u, c, v, t) => ({
+  x: (1 - t) * (1 - t) * u.x + 2 * (1 - t) * t * c.x + t * t * v.x,
+  y: (1 - t) * (1 - t) * u.y + 2 * (1 - t) * t * c.y + t * t * v.y,
+});
+const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+function splitQuad(u, c, v, t) {
+  const a = lerp(u, c, t), b = lerp(c, v, t), p = lerp(a, b, t);
+  return { left: [u, a, p], right: [p, b, v] };
+}
+function subquad(u, c, v, t0, t1) {
+  const start = Math.min(0.999, Math.max(0, t0));
+  const end = Math.min(1, Math.max(start + 0.001, t1));
+  const right = splitQuad(u, c, v, start).right;
+  const local = (end - start) / (1 - start);
+  return splitQuad(right[0], right[1], right[2], local).left;
+}
+function trimT(g, end, radius) {
+  const target = end === 'u' ? g.u : g.v;
+  let lo = 0, hi = 1;
+  for (let k = 0; k < 24; k++) {
+    const mid = (lo + hi) / 2;
+    const p = qpt(g.u, g.c, g.v, mid);
+    const dist = Math.hypot(p.x - target.x, p.y - target.y);
+    if (end === 'v') { if (dist > radius) lo = mid; else hi = mid; }
+    else if (dist > radius) hi = mid; else lo = mid;
+  }
+  return end === 'v' ? lo : hi;
+}
+function geometry(item) {
+  const pos = new Map(item.nodes.map((n) => [n.id, { x: n.x * W, y: n.y * Hh }]));
+  const groups = new Map();
+  for (const e of item.edges) {
+    const pair = [e.u, e.v].sort((a, b) => a - b).join(',');
+    if (!groups.has(pair)) groups.set(pair, []);
+    groups.get(pair).push(e);
+  }
+  const out = [];
+  for (const list of groups.values()) {
+    const P = pos.get(list[0].u), Q = pos.get(list[0].v);
+    const dx = Q.x - P.x, dy = Q.y - P.y, len = Math.hypot(dx, dy) || 1;
+    const px = -dy / len, py = dx / len, count = list.length;
+    const sp = Math.min(26, 150 / count);
+    list.forEach((e, index) => {
+      const off = (index - (count - 1) / 2) * sp;
+      out.push({
+        e,
+        u: pos.get(e.u),
+        v: pos.get(e.v),
+        c: { x: (P.x + Q.x) / 2 + px * off * 2, y: (P.y + Q.y) / 2 + py * off * 2 },
+        len,
+      });
+    });
+  }
+  return out;
+}
+function pill(x, y, label) {
+  const wd = label.length * 6.7 + 12;
+  return `<rect class="pill-bg" x="${f1(x - wd / 2)}" y="${f1(y - 9)}" width="${f1(wd)}" height="18" rx="9"/>` +
+    `<text class="pill-tx" x="${f1(x)}" y="${f1(y + 0.5)}">${esc(label)}</text>`;
+}
+
+function renderCanvas() {
+  const item = current();
+  measure();
+  $('board-empty').hidden = !!item;
+  $('btn-circle').disabled = !item;
+  $('btn-spread').disabled = !item;
+  $('btn-weights').disabled = !item;
+  $('btn-weights').setAttribute('aria-pressed', S.showWeights ? 'true' : 'false');
+  if (!item) {
+    svg.setAttribute('aria-label', 'Oriented graph');
+    svg.innerHTML = '';
+    return;
+  }
+  place(item);
+  svg.setAttribute('aria-label', `${item.name}, ${item.algorithm}, makespan ${fmtNum(item.makespan)}`);
+  const drawn = geometry(item);
+  const selEdge = S.sel && S.sel.type === 'edge' ? S.sel.id : null;
+  const defs = `<defs>
+    <marker id="arr" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0.8 1.3 L11 6 L0.8 10.7 Z" fill="var(--ink2)"/></marker>
+    <marker id="arr-on" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0.8 1.3 L11 6 L0.8 10.7 Z" fill="var(--accent)"/></marker>
+  </defs>`;
+  const draw = (g) => {
+    const sel = g.e.id === selEdge;
+    const full = `M${f1(g.u.x)} ${f1(g.u.y)}Q${f1(g.c.x)} ${f1(g.c.y)} ${f1(g.v.x)} ${f1(g.v.y)}`;
+    const t0 = trimT(g, 'u', NODE_R + 2);
+    const t1 = trimT(g, 'v', NODE_R + 2);
+    let visible = '';
+    if (t1 - t0 >= 0.04) {
+      const [a, c, b] = subquad(g.u, g.c, g.v, t0, t1);
+      const marker = sel ? 'arr-on' : 'arr';
+      const tip = g.e.head === g.e.u ? `marker-start="url(#${marker})"` : `marker-end="url(#${marker})"`;
+      visible = `<path class="edge-line" d="M${f1(a.x)} ${f1(a.y)}Q${f1(c.x)} ${f1(c.y)} ${f1(b.x)} ${f1(b.y)}" ${tip}/>`;
+    }
+    let labels = '';
+    if (S.showWeights || sel) {
+      const at = qpt(g.u, g.c, g.v, 0.5);
+      labels = pill(at.x, at.y, fmtNum(g.e.weight));
+    }
+    const tip = `${g.e.u} to ${g.e.head}, weight ${fmtNum(g.e.weight)}`;
+    return `<g class="edge${sel ? ' sel' : ''}" data-edge="${g.e.id}"><title>${esc(tip)}</title>${visible}<path class="edge-hit" d="${full}"/>${labels}</g>`;
+  };
+  let html = defs;
+  for (const g of drawn) if (g.e.id !== selEdge) html += draw(g);
+  for (const g of drawn) if (g.e.id === selEdge) html += draw(g);
+  for (const node of item.nodes) {
+    const p = { x: node.x * W, y: node.y * Hh };
+    const hot = item.peak > 0 && nearly(node.load, item.peak);
+    const t = item.peak > 0 ? Math.max(0, Math.min(1, node.load / item.peak)) : 0;
+    const selected = S.sel && S.sel.type === 'node' && S.sel.id === node.id;
+    const idText = String(node.id);
+    const loadText = fmtNum(node.load);
+    const wd = Math.max(22, loadText.length * 6.6 + 10);
+    const ly = p.y + NODE_R + 6;
+    html += `<g class="node" data-node="${node.id}">`;
+    if (node.load > 0) {
+      html += `<circle class="load-ring${hot ? ' hot' : ''}" cx="${f1(p.x)}" cy="${f1(p.y)}" r="${NODE_R + 5}" stroke-width="${f1(hot ? 3 : 1.2 + 2 * t)}" opacity="${hot ? 1 : (0.28 + 0.55 * t)}"/>`;
+    }
+    if (selected) html += `<circle class="ring-sel" cx="${f1(p.x)}" cy="${f1(p.y)}" r="${NODE_R + 9}"/>`;
+    html += `<circle class="node-c" cx="${f1(p.x)}" cy="${f1(p.y)}" r="${NODE_R}"/>` +
+      `<text class="node-tx" x="${f1(p.x)}" y="${f1(p.y + 0.5)}"${idText.length > 2 ? ' style="font-size:10px"' : ''}>${esc(idText)}</text>` +
+      `<rect class="load-bg${hot ? ' hot' : ''}" x="${f1(p.x - wd / 2)}" y="${f1(ly)}" width="${f1(wd)}" height="16" rx="8"/>` +
+      `<text class="load-tx${hot ? ' hot' : ''}" x="${f1(p.x)}" y="${f1(ly + 8.5)}">${esc(loadText)}</text></g>`;
+  }
+  svg.innerHTML = html;
+}
+
+function renderAll() {
+  renderAlgorithm();
+  renderInstances();
+  renderInspector();
+  renderCanvas();
+  renderHint();
+}
+
+async function textsFrom(fileList) {
+  const files = [...fileList].filter((file) => /\.txt$/i.test(file.name) || (file.type || '').startsWith('text/'));
+  const nested = files.filter((file) => /(?:^|[\\/])assignments[\\/]/i.test(file.webkitRelativePath || ''));
+  const chosen = nested.length ? nested : files;
+  const out = [];
+  for (const file of chosen) {
+    const text = await file.text();
+    if (nested.length || text.includes('graph-assignments')) out.push({ name: file.name, text });
+  }
+  return out;
+}
+async function loadFileList(fileList) {
+  let texts = [];
+  try { texts = await textsFrom(fileList); }
+  catch (exc) { flash(exc.message); return; }
+  if (!texts.length) {
+    flash('No assignment files in that selection. Open the assignments folder, or the .txt files inside it.');
+    return;
+  }
+  const items = [];
+  const errors = [];
+  for (const file of texts) {
+    try { items.push(...parseAssignments(file.text)); }
+    catch (exc) { errors.push(`${file.name}: ${exc.message}`); }
+  }
+  if (!items.length) { flash(errors[0] || 'Nothing to draw.'); return; }
+  const drawings = items.length === 1 ? '1 drawing' : `${items.length} drawings`;
+  const files = texts.length === 1 ? '1 file' : `${texts.length} files`;
+  adopt(items, errors.length ? `${errors[0]}` : `Loaded ${drawings} from ${files}.`);
+}
+
+$('btn-open').addEventListener('click', () => $('file-open').click());
+$('btn-folder').addEventListener('click', () => $('file-dir').click());
+$('file-open').addEventListener('change', (ev) => { if (ev.target.files.length) loadFileList(ev.target.files); ev.target.value = ''; });
+$('file-dir').addEventListener('change', (ev) => { if (ev.target.files.length) loadFileList(ev.target.files); ev.target.value = ''; });
+$('btn-example').addEventListener('click', () => {
+  try { adopt(parseAssignments(EXAMPLE), 'Loaded the example. sample-a and sample-b are two orientations of the same graphs.'); }
+  catch (exc) { flash(exc.message); }
+});
+$('btn-paste').addEventListener('click', () => { $('paste-dialog').hidden = false; $('paste-in').focus(); });
+$('paste-close').addEventListener('click', () => { $('paste-dialog').hidden = true; });
+$('paste-dialog').addEventListener('click', (ev) => { if (ev.target === $('paste-dialog')) $('paste-dialog').hidden = true; });
+$('paste-go').addEventListener('click', () => {
+  try {
+    const items = parseAssignments($('paste-in').value);
+    $('paste-dialog').hidden = true;
+    adopt(items, `Loaded ${items.length === 1 ? '1 drawing' : items.length + ' drawings'}.`);
+  } catch (exc) { flash(exc.message); }
+});
+$('algo').addEventListener('change', () => {
+  S.algorithm = $('algo').value;
+  S.sel = null;
+  if (!S.items.some((item) => item.algorithm === S.algorithm && item.name === S.activeName)) {
+    const next = S.items.find((item) => item.algorithm === S.algorithm);
+    S.activeName = next ? next.name : null;
+  }
+  renderAll();
+});
+$('inst-filter').addEventListener('input', () => { S.filter = $('inst-filter').value; renderInstances(); });
+$('btn-weights').addEventListener('click', () => { S.showWeights = !S.showWeights; renderCanvas(); });
+$('btn-circle').addEventListener('click', () => { const item = current(); if (!item) return; place(item, 'circle'); renderCanvas(); });
+$('btn-spread').addEventListener('click', () => { const item = current(); if (!item) return; place(item, 'spread'); renderCanvas(); });
+
+let drag = null;
+board.addEventListener('pointerdown', (ev) => {
+  const item = current();
+  if (!item) return;
+  const nodeEl = ev.target.closest('[data-node]');
+  if (nodeEl) {
+    const id = Number(nodeEl.dataset.node);
+    const node = item.nodes.find((n) => n.id === id);
+    drag = { id, x: ev.clientX, y: ev.clientY, moved: false };
+    if (node) { drag.ox = node.x; drag.oy = node.y; }
+    board.setPointerCapture(ev.pointerId);
+    return;
+  }
+  const edgeEl = ev.target.closest('[data-edge]');
+  if (edgeEl) {
+    S.sel = { type: 'edge', id: Number(edgeEl.dataset.edge) };
+    renderCanvas();
+    renderInspector();
+    return;
+  }
+  if (S.sel) { S.sel = null; renderCanvas(); renderInspector(); }
+});
+board.addEventListener('pointermove', (ev) => {
+  if (!drag) return;
+  const item = current();
+  const node = item && item.nodes.find((n) => n.id === drag.id);
+  if (!node) return;
+  const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+  if (!drag.moved && Math.hypot(dx, dy) < 3) return;
+  drag.moved = true;
+  node.x = Math.min(0.96, Math.max(0.04, drag.ox + dx / W));
+  node.y = Math.min(0.92, Math.max(0.06, drag.oy + dy / Hh));
+  saveLayout(item);
+  renderCanvas();
+});
+function endDrag() {
+  if (!drag) return;
+  if (!drag.moved) {
+    S.sel = { type: 'node', id: drag.id };
+    renderCanvas();
+    renderInspector();
+  }
+  drag = null;
+}
+board.addEventListener('pointerup', endDrag);
+board.addEventListener('pointercancel', endDrag);
+window.addEventListener('resize', () => { if (current()) renderCanvas(); });
+window.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape') $('paste-dialog').hidden = true;
+});
+window.addEventListener('dragover', (ev) => {
+  if ([...ev.dataTransfer.types].includes('Files')) ev.preventDefault();
+});
+window.addEventListener('drop', (ev) => {
+  if (!ev.dataTransfer.files || !ev.dataTransfer.files.length) return;
+  ev.preventDefault();
+  loadFileList(ev.dataTransfer.files);
+});
+
+renderAll();
+</script>
+</body>
+</html>
